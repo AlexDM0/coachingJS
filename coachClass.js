@@ -10,10 +10,12 @@ mealTimeCoach.state = {
 
 // setup will set all the requirements
 mealTimeCoach.setup = function() {
+  // this could be extended to have the FULL specification of the sensors. It would be the requirement definition.
   notifications.listen("meal_time_breakfast", this.onSensorData);
   notifications.listen("meal_time_lunch",     this.onSensorData);
   notifications.listen("meal_time_dinner",    this.onSensorData);
 
+  // will fire at the endtime regardless, triggerTimes are other times this will trigger at.
   coachingEngine.addTask({sensors: ["meal_time_breakfast"], repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["08:00"]}, this.evaluate);
   coachingEngine.addTask({sensors: ["meal_time_lunch"],     repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["13:00"]}, this.evaluate);
   coachingEngine.addTask({sensors: ["meal_time_dinner"],    repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["18:30"]}, this.evaluate);
@@ -27,7 +29,7 @@ mealTimeCoach.setup = function() {
  */
 mealTimeCoach.onSensorData = function(sensor, data) {
   this.state[sensor] += 1;
-  coachingEngine.updateTaskForSensor(sensor, data)
+  coachingEngine.updateTaskForSensor(sensor, data);
 }
 
 
@@ -42,8 +44,8 @@ mealTimeCoach.evaluate = function(task, time, sensor, data) {
   if (sensor === undefined) {sensor = task.sensors[0];} // here we know that there is only one sensor.
   var stateData = this.state[sensor];
   var value = stateData.value;
-  var targetTime = timeToDailyTimestamp(stateData.time, task.originDate);
-  var endTime = timeToDailyTimestamp(stateData.time, task.originDate);
+  var targetTime = util.timeToDailyTimestamp(stateData.time, task.originDate);
+  var endTime = util.timeToDailyTimestamp(stateData.time, task.originDate);
   var offset = 30 * 60 * 1000;
 
   if (value == 0) {
@@ -53,17 +55,17 @@ mealTimeCoach.evaluate = function(task, time, sensor, data) {
 
     if (time > endTime) {
       coachingEngine.send(this.state.id, "unknown");
-      coachingEngine.finish(scheduleInformation)
+      coachingEngine.finish(scheduleInformation);
     }
   }
   else {
     if (time <= targetTime + offset || time >= targetTime - offset) {
       coachingEngine.send(this.state.id, "success")
-      coachingEngine.finish(scheduleInformation)
+      coachingEngine.finish(scheduleInformation);
     }
     else {
       coachingEngine.send(this.state.id, "failure")
-      coachingEngine.finish(scheduleInformation)
+      coachingEngine.finish(scheduleInformation);
     }
   }
 }
@@ -72,20 +74,22 @@ mealTimeCoach.evaluate = function(task, time, sensor, data) {
 
 // used to handle tasks. Tasks are automatically rescheduled based on their times and the finish method.
 var coachingEngine = {};
-coachingEngine.state               = {} // state will be persisted
+coachingEngine.state               = {}; // state will be persisted
 coachingEngine.addTask             = function(options, callback) {};
 coachingEngine.updateTaskForSensor = function(sensor, data) {};
 coachingEngine.finish              = function(information) {};
 
-// used to send and listen to notifications
+// used to send and listen to notifications.
 var notifications = {};
-notifications.send                = function() {};
-notifications.listen              = function(topic, callback) {};
+notifications.send   = function() {};
+notifications.listen = function(topic, callback) {};
 
 // the scheduler will be used by the coaching engine entity
 var scheduler = {};
-scheduler.schedule = function(options, callback) {};
+scheduler.state     = {}; // this will store the scheduled things and will be persisted.
+scheduler.schedule  = function(options, callback) {};
+scheduler.reset     = function() {}; // resets all scheduled callbacks
 
-// an object with util methods.
+// an object with util methods. Stateless.
 var util = {};
 util.timeToDailyTimestamp = function (timeString, originDateTimeStamp) {}; // convert a string time "08:30" to a timestamp in the day of the originDate
