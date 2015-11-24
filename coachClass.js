@@ -34,11 +34,12 @@ mealTimeCoach.onSensorData = function(sensor, data) {
 /**
  * This is an abitrarily named method that is bound in the setup to the task
  * @param {Object}  task      | A JSON object containing the information of the task as well as the initialization date of the task.
- * @param {Number}  time      | A timestamp of the time this method is invoked at
+ * @param {Number}  time      | A timestamp of the time this method is invoked at.
  * @param {String}  [sensor]  | The name of the sensor that might have triggered this method. Can be empty.
  * @param {Object}  [data ]   | The data of the sensor that might have triggered this method. Can be empty.
  */
 mealTimeCoach.evaluate = function(task, time, sensor, data) {
+  if (sensor === undefined) {sensor = task.sensors[0];} // here we know that there is only one sensor.
   var stateData = this.state[sensor];
   var value = stateData.value;
   var targetTime = timeToDailyTimestamp(stateData.time, task.originDate);
