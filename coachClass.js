@@ -30,7 +30,7 @@ mealTimeCoach.setup = function() {
  * @param {Object} data      | JSON object containing the data of the sensor as defined by the sensor profiles from the DSE.
  */
 mealTimeCoach.onSensorData = function(sensor, data) {
-  this.state[sensor] += 1;
+  this.state[sensor].value += 1;
   coachingEngine.updateTaskForSensor(sensor, data);
 }
 
@@ -40,7 +40,7 @@ mealTimeCoach.onSensorData = function(sensor, data) {
  * @param {Object}  task      | A JSON object containing the information of the task as well as the initialization date of the task.
  * @param {Number}  time      | A timestamp of the time this method is invoked at.
  * @param {String}  [sensor]  | The name of the sensor that might have triggered this method. Can be empty.
- * @param {Object}  [data ]   | The data of the sensor that might have triggered this method. Can be empty.
+ * @param {Object}  [data]    | The data of the sensor that might have triggered this method. Can be empty.
  */
 mealTimeCoach.evaluate = function(task, time, sensor, data) {
   if (sensor === undefined) {sensor = task.sensors[0];} // here we know that there is only one sensor so we can write it like this.
