@@ -1,6 +1,6 @@
 var mealTimeCoach = {};
 
-// everything inside the state will be stored.
+// everything inside the state will be stored and persisted.
 mealTimeCoach.state = {
   "id": "mealTimeCoach",
   "meal_time_breakfast": {value: 0, time: "07:30"},
@@ -11,11 +11,13 @@ mealTimeCoach.state = {
 // setup will set all the requirements
 mealTimeCoach.setup = function() {
   // this could be extended to have the FULL specification of the sensors. It would be the requirement definition.
+  // binding the callback to the this with the state will be done here
   notifications.listen("meal_time_breakfast", this.onSensorData);
   notifications.listen("meal_time_lunch",     this.onSensorData);
   notifications.listen("meal_time_dinner",    this.onSensorData);
 
   // will fire at the endtime regardless, triggerTimes are other times this will trigger at.
+  // binding the callback to the this with the state will be done here
   coachingEngine.addTask({sensors: ["meal_time_breakfast"], repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["08:00"]}, this.evaluate);
   coachingEngine.addTask({sensors: ["meal_time_lunch"],     repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["13:00"]}, this.evaluate);
   coachingEngine.addTask({sensors: ["meal_time_dinner"],    repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["18:30"]}, this.evaluate);
@@ -41,7 +43,7 @@ mealTimeCoach.onSensorData = function(sensor, data) {
  * @param {Object}  [data ]   | The data of the sensor that might have triggered this method. Can be empty.
  */
 mealTimeCoach.evaluate = function(task, time, sensor, data) {
-  if (sensor === undefined) {sensor = task.sensors[0];} // here we know that there is only one sensor.
+  if (sensor === undefined) {sensor = task.sensors[0];} // here we know that there is only one sensor so we can write it like this.
   var stateData = this.state[sensor];
   var value = stateData.value;
   var targetTime = util.timeToDailyTimestamp(stateData.time, task.originDate);
@@ -71,6 +73,11 @@ mealTimeCoach.evaluate = function(task, time, sensor, data) {
 }
 
 
+
+
+
+
+// ********************** stubs for required support classes: ********************** //
 
 // used to handle tasks. Tasks are automatically rescheduled based on their times and the finish method.
 var coachingEngine = {};
