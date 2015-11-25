@@ -70,6 +70,8 @@ mealTimeCoach.evaluate = function(task, time, sensor, data) {
 
       if (time > endTime) {
         Notifications.send(this.state.id, {message: "unknown"});
+        // finish should recreate the task at the right time, calling the init and setting active to true.
+        // It should be immidiately after this so there is no point setting active to false.
         CoachingEngine.finish(task);
       }
     }
@@ -83,7 +85,7 @@ mealTimeCoach.evaluate = function(task, time, sensor, data) {
         CoachingEngine.finish(task);
       }
 
-      // stop listening to the
+      // stop listening to the sensors
       this.state[sensor].active = false;
     }
   }
