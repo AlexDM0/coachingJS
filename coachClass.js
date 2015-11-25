@@ -3,9 +3,9 @@ var mealTimeCoach = {};
 // everything inside the state will be stored and persisted.
 mealTimeCoach.state = {
   "id": "mealTimeCoach",
-  "meal_time_breakfast": {value: 0, time: "07:30"},
-  "meal_time_lunch":     {value: 0, time: "12:30"},
-  "meal_time_dinner":    {value: 0, time: "18:00"},
+  "meal_time_breakfast": {value: 0, time: "07:30", active: true},
+  "meal_time_lunch":     {value: 0, time: "12:30", active: true},
+  "meal_time_dinner":    {value: 0, time: "18:00", active: true},
 }
 
 // setup will set all the requirements
@@ -18,11 +18,21 @@ mealTimeCoach.setup = function() {
 
   // will fire at the endtime regardless, triggerTimes are other times this will trigger at.
   // binding the callback to the this with the state will be done here
-  CoachingEngine.addTask({sensors: ["meal_time_breakfast"], repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["08:00"]}, this.evaluate);
-  CoachingEngine.addTask({sensors: ["meal_time_lunch"],     repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["13:00"]}, this.evaluate);
-  CoachingEngine.addTask({sensors: ["meal_time_dinner"],    repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["18:30"]}, this.evaluate);
+  CoachingEngine.addTask({messages: ["meal_time_breakfast"], repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["08:00"]}, {init: this.taskInit, trigger: this.evaluate});
+  CoachingEngine.addTask({messages: ["meal_time_lunch"],     repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["13:00"]}, {init: this.taskInit, trigger: this.evaluate});
+  CoachingEngine.addTask({messages: ["meal_time_dinner"],    repeat: "daily", startTime: "00:00", endTime: "23:59", triggerTimes: ["18:30"]}, {init: this.taskInit, trigger: this.evaluate});
 }
 
+
+/**
+ * required for maintaining state.. ugly..
+ * @param task
+ */
+mealTimeCoach.taskInit = function(task) {
+  this.state[task.messages[0]].value = 0;
+  this.state[task.messages[0]].active = true;
+
+}
 
 /**
  * This is an abitrarily named method that is bound in the setup on sensor updates
@@ -30,8 +40,10 @@ mealTimeCoach.setup = function() {
  * @param {Object} data      | JSON object containing the data of the sensor as defined by the sensor profiles from the DSE.
  */
 mealTimeCoach.onSensorData = function(sensor, data) {
-  this.state[sensor].value += 1;
-  CoachingEngine.updateTaskForSensor(sensor, data);
+  if (this.state[sensor].active === true) {
+    this.state[sensor].value += 1;
+    CoachingEngine.updateTaskForMessage(sensor, data);
+  }
 }
 
 
@@ -43,29 +55,36 @@ mealTimeCoach.onSensorData = function(sensor, data) {
  * @param {Object}  [data]    | The data of the sensor that might have triggered this method. Can be empty.
  */
 mealTimeCoach.evaluate = function(task, time, sensor, data) {
-  if (sensor === undefined) {sensor = task.sensors[0];} // here we know that there is only one sensor so we can write it like this.
-  var targetTime = util.timeToDailyTimestamp(this.state[sensor].time, task.originDate);
-  var endTime = util.timeToDailyTimestamp(this.state[sensor].time, task.originDate);
-  var offset = 30 * 60 * 1000; // 30 mins in milliseconds
+  if (sensor === undefined) {sensor = task.messages[0];} // here we know that there is only one sensor so we can write it like this.
 
-  if (this.state[sensor].value == 0) {
-    if (time > targetTime + offset) {
-      CoachingEngine.send(this.state.id, {message: "reminder"});
-    }
+  // required to keep this from processing additional sensor notifications after it's finished.
+  if (this.state[sensor].active === true) {
+    var targetTime = util.timeToDailyTimestamp(this.state[sensor].time, task.originDate);
+    var endTime = util.timeToDailyTimestamp(this.state[sensor].time, task.originDate);
+    var offset = 30 * 60 * 1000; // 30 mins in milliseconds
 
-    if (time > endTime) {
-      CoachingEngine.send(this.state.id, {message: "unknown"});
-      CoachingEngine.finish(task);
-    }
-  }
-  else {
-    if (time <= targetTime + offset || time >= targetTime - offset) {
-      CoachingEngine.send(this.state.id, {message: "success"})
-      CoachingEngine.finish(task);
+    if (this.state[sensor].value == 0) {
+      if (time > targetTime + offset) {
+        Notifications.send(this.state.id, {message: "reminder"});
+      }
+
+      if (time > endTime) {
+        Notifications.send(this.state.id, {message: "unknown"});
+        CoachingEngine.finish(task);
+      }
     }
     else {
-      CoachingEngine.send(this.state.id, {message: "failure"})
-      CoachingEngine.finish(task);
+      if (time <= targetTime + offset || time >= targetTime - offset) {
+        Notifications.send(this.state.id, {message: "success"})
+        CoachingEngine.finish(task);
+      }
+      else {
+        Notifications.send(this.state.id, {message: "failure"})
+        CoachingEngine.finish(task);
+      }
+
+      // stop listening to the
+      this.state[sensor].active = false;
     }
   }
 }
@@ -86,7 +105,7 @@ CoachingEngine.state = {}; // state will be persisted
  * The task will always ALSO trigger on the endTime. At this point it is expected that finish will be called.
  *
  * @param {Object}   options    |  {
- *                              |    sensors:   Array    // array of sensors that will be triggering the callback,
+ *                              |    messages:   Array   // array of messages that will be triggering the callback. Not only sensors, could be manually triggered messages as well.
  *                              |    repeat:    String,  // "daily"/"weekly" which defines how often the task is repeated
  *                              |    startTime: String,  // "00:00" to indicate when the task starts. In case of weekly it will be for the first day.
  *                              |    endTime:   String,  // "23:59" to indicate when the task ends. In case of weekly it will be for the last day.
@@ -100,17 +119,17 @@ CoachingEngine.addTask = function(options, callback) {};
 
 /**
  * Will fire a task with the callback if there exists a task with this sensor in the array of relevant sensors.
- * @param {String} sensor
+ * @param {String} message
  * @param {Object} data
  */
-CoachingEngine.updateTaskForSensor = function(sensor, data) {};
+CoachingEngine.updateTaskForMessage = function(message, data) {};
 
 /**
  * This should mark the task as finished, making sure it will ONLY start listening for new date when the new period has been started
  * This is the what makes the task system better than the normal usage of the Scheduler.
- * @param information
+ * @param {Object} task         | JSON task description
  */
-CoachingEngine.finish = function(information) {};
+CoachingEngine.finish = function(task) {};
 
 
 
